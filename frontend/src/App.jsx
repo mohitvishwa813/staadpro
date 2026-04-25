@@ -25,6 +25,7 @@ function App() {
   const [file, setFile] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
   const [view, setView] = useState('summary'); // 'summary' | 'detail' | 'parts'
 
@@ -33,6 +34,7 @@ function App() {
     setData(null);
     setError(null);
     setLoading(false);
+    setDownloading(false);
   };
 
   const handleFileUpload = async (uploadedFile) => {
@@ -57,6 +59,7 @@ function App() {
   const downloadExcel = async () => {
     if (!file) return;
     
+    setDownloading(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -72,9 +75,12 @@ function App() {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Download failed', err);
       alert('Failed to download Excel file.');
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -180,10 +186,15 @@ function App() {
                   </button>
                   <button 
                     onClick={downloadExcel}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 transition-all text-sm font-bold shadow-2xl shadow-indigo-600/30 group"
+                    disabled={downloading}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all text-sm font-bold shadow-2xl shadow-indigo-600/30 group"
                   >
-                    <Download className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
-                    Get Report
+                    {downloading ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
+                    )}
+                    {downloading ? 'Generating...' : 'Get Report'}
                   </button>
                 </div>
               </div>

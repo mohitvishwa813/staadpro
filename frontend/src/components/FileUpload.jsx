@@ -64,20 +64,23 @@ const FileUpload = ({ onUpload, error }) => {
         <input
           type="file"
           id="file-upload"
-          className={`absolute inset-0 w-full h-full opacity-0 ${selectedFile ? 'hidden' : 'cursor-pointer'}`}
+          className="hidden"
           onChange={handleChange}
-          accept=".STD"
+          accept=".std,.STD"
         />
         
         <div className="flex flex-col items-center">
           {!selectedFile ? (
-            <>
+            <label 
+              htmlFor="file-upload" 
+              className="flex flex-col items-center cursor-pointer w-full h-full"
+            >
               <div className="w-20 h-20 bg-indigo-600/10 rounded-[2rem] flex items-center justify-center mb-8 group-hover:bg-indigo-600/20 group-hover:scale-110 transition-all duration-500 shadow-inner">
                 <Upload className="w-10 h-10 text-indigo-500" />
               </div>
-              <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">Drop your design here</h3>
-              <p className="text-slate-500 text-sm font-medium">Select a STAAD.Pro (.STD) file to begin analysis</p>
-            </>
+              <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">Click or Drop file here</h3>
+              <p className="text-slate-500 text-sm font-medium px-4">Select a STAAD.Pro (.STD) file to begin analysis</p>
+            </label>
           ) : (
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
