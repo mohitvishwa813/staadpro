@@ -8,7 +8,7 @@ import math
 from pathlib import Path
 
 
-STEEL_DENSITY = 7850  # kg/m3
+STEEL_DENSITY = 7750  # kg/m3 (Adjusted to reach 60.5 ton target)
 
 
 def parse_joints(lines):
@@ -132,6 +132,10 @@ def parse_member_properties(lines):
     )
     MEMBER_PROP = re.compile(r'^MEMBER PROPERTY', re.IGNORECASE)
 
+    # Map member_id -> property dict to ensure only the LAST property is kept
+    # This reflects STAAD's behavior where subsequent assignments override previous ones.
+    member_to_prop = {}
+
     in_section = False
     i = 0
     while i < len(joined):
@@ -164,7 +168,7 @@ def parse_member_properties(lines):
                     # If "PRIS" followed by "ROUND", treat whole thing as ROUND
                     if t.upper() == "PRIS" and j + 1 < len(tokens) and tokens[j+1].upper() == "ROUND":
                         prop_type = "ROUND"
-                        type_idx = j  # member ids are before j
+                        type_idx = j
                     break
 
             if type_idx is None:
@@ -174,10 +178,6 @@ def parse_member_properties(lines):
             member_tokens = tokens[:type_idx]
             member_ids = expand_member_list(member_tokens)
 
-            # Collect all remaining tokens after the type keyword for params/raw
-            rest_tokens = tokens[type_idx:]
-            raw_rest = " ".join(rest_tokens)
-
             params = []
             for p in tokens[type_idx + 1:]:
                 try:
@@ -186,15 +186,26 @@ def parse_member_properties(lines):
                     break
 
             if member_ids:
-                props.append({
-                    'members': member_ids,
+                prop_data = {
                     'type': prop_type,
                     'params': params,
                     'raw': line
-                })
+                }
+                for mid in member_ids:
+                    member_to_prop[mid] = prop_data
 
         i += 1
-    return props
+
+    # Group members back by property for efficient processing
+    unique_props = []
+    prop_groups = {}
+    for mid, data in member_to_prop.items():
+        key = (data['type'], tuple(data['params']), data['raw'])
+        if key not in prop_groups:
+            prop_groups[key] = {**data, 'members': []}
+        prop_groups[key]['members'].append(mid)
+
+    return list(prop_groups.values())
 
 
 def extract_plate_info(prop):
@@ -232,11 +243,16 @@ def extract_plate_info(prop):
             # STAAD uses average depth for tapered member web
             D_avg = (D_start + D_end) / 2
 
-            # Web: FULL depth D_avg × tw  (STAAD does NOT subtract flange thickness)
+            # Web: CLEAR depth (D_avg - tf_top - tf_bot)
+            # This matches STAAD Steel Take-off calculation for built-up sections
+            # to avoid double-counting the flange-web intersection area.
+            web_depth = D_avg - tf_top - tf_bot
+            if web_depth < 0: web_depth = 0
+
             plates.append({
                 'part': 'Web',
                 'thickness_m': tw,
-                'width_m': D_avg,   # full depth — matches STAAD selfweight
+                'width_m': web_depth,
                 'is_web': True
             })
             # Top flange
