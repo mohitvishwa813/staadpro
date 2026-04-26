@@ -1,0 +1,17 @@
+{
+  "name": "STAAD Procurement Tool",
+  "short_name": "STAAD Pro",
+  "description": "Advanced STAAD.Pro parser for material procurement reporting.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

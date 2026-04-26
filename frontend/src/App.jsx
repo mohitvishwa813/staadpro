@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Smartphone
 } from 'lucide-react';
 import Navbar from './components/Navbar';
 import FileUpload from './components/FileUpload';
@@ -28,6 +29,48 @@ function App() {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
   const [view, setView] = useState('summary'); // 'summary' | 'detail' | 'parts'
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [alreadyInstalled, setAlreadyInstalled] = useState(false);
+
+  useEffect(() => {
+    // Check if already in standalone mode
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+      setIsStandalone(true);
+    }
+
+    // Check localStorage for previous installation
+    if (localStorage.getItem('pwa-installed') === 'true') {
+      setAlreadyInstalled(true);
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      // If we got the prompt, it means it's definitely NOT installed on this device/browser
+      localStorage.removeItem('pwa-installed');
+      setAlreadyInstalled(false);
+    });
+
+    window.addEventListener('appinstalled', () => {
+      setDeferredPrompt(null);
+      setIsStandalone(true);
+      setAlreadyInstalled(true);
+      localStorage.setItem('pwa-installed', 'true');
+      console.log('PWA was installed');
+    });
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    // Show the install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    // We've used the prompt, and can't use it again, throw it away
+    setDeferredPrompt(null);
+  };
 
   const resetApp = () => {
     setFile(null);
@@ -92,7 +135,13 @@ function App() {
         <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] bg-violet-600/10 rounded-full blur-[120px] animate-mesh" style={{ animationDelay: '-5s' }} />
       </div>
 
-      <Navbar onReset={resetApp} />
+      <Navbar 
+        onReset={resetApp} 
+        installPrompt={deferredPrompt} 
+        onInstall={handleInstallClick}
+        isStandalone={isStandalone}
+        alreadyInstalled={alreadyInstalled}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10">
         <AnimatePresence mode="wait">
