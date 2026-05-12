@@ -1,19 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FileUp, 
-  FileSpreadsheet, 
-  BarChart3, 
-  Table as TableIcon, 
-  Download, 
+import {
+  FileUp,
+  BarChart3,
+  Table as TableIcon,
+  Download,
   RefreshCw,
-  Search,
-  CheckCircle2,
-  AlertCircle,
   Layers,
-  ArrowRight,
-  Smartphone
+  Circle
 } from 'lucide-react';
 import Navbar from './components/Navbar';
 import FileUpload from './components/FileUpload';
@@ -21,6 +16,8 @@ import StatsGrid from './components/StatsGrid';
 import ResultsTable from './components/ResultsTable';
 
 const API_BASE = 'https://staadpro-wvbd.onrender.com';
+// const API_BASE = 'http://localhost:8000';
+
 
 function App() {
   const [file, setFile] = useState(null);
@@ -28,37 +25,38 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
-  const [view, setView] = useState('summary'); // 'summary' | 'detail' | 'parts'
+  const [view, setView] = useState('summary'); // 'summary' | 'detail' | 'parts' | 'pipes'
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [isStandalone, setIsStandalone] = useState(false);
-  const [alreadyInstalled, setAlreadyInstalled] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(
+    () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+  );
+  const [alreadyInstalled, setAlreadyInstalled] = useState(
+    () => localStorage.getItem('pwa-installed') === 'true'
+  );
 
   useEffect(() => {
-    // Check if already in standalone mode
-    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-      setIsStandalone(true);
-    }
-
-    // Check localStorage for previous installation
-    if (localStorage.getItem('pwa-installed') === 'true') {
-      setAlreadyInstalled(true);
-    }
-
-    window.addEventListener('beforeinstallprompt', (e) => {
+    const onBeforeInstall = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
       // If we got the prompt, it means it's definitely NOT installed on this device/browser
       localStorage.removeItem('pwa-installed');
       setAlreadyInstalled(false);
-    });
+    };
 
-    window.addEventListener('appinstalled', () => {
+    const onInstalled = () => {
       setDeferredPrompt(null);
       setIsStandalone(true);
       setAlreadyInstalled(true);
       localStorage.setItem('pwa-installed', 'true');
       console.log('PWA was installed');
-    });
+    };
+
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
   }, []);
 
   const handleInstallClick = async () => {
@@ -101,16 +99,16 @@ function App() {
 
   const downloadExcel = async () => {
     if (!file) return;
-    
+
     setDownloading(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const response = await axios.post(`${API_BASE}/download`, formData, {
         responseType: 'blob'
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -135,9 +133,9 @@ function App() {
         <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] bg-violet-600/10 rounded-full blur-[120px] animate-mesh" style={{ animationDelay: '-5s' }} />
       </div>
 
-      <Navbar 
-        onReset={resetApp} 
-        installPrompt={deferredPrompt} 
+      <Navbar
+        onReset={resetApp}
+        installPrompt={deferredPrompt}
         onInstall={handleInstallClick}
         isStandalone={isStandalone}
         alreadyInstalled={alreadyInstalled}
@@ -165,7 +163,7 @@ function App() {
                   </span>
                   v1.0.0 Now Live
                 </motion.div>
-                <motion.h1 
+                <motion.h1
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
@@ -173,13 +171,13 @@ function App() {
                 >
                   Engineered for <span className="text-indigo-500">Procurement.</span>
                 </motion.h1>
-                <motion.p 
+                <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
                   className="text-slate-400 text-base sm:text-lg leading-relaxed px-4"
                 >
-                  The most advanced STAAD.Pro parser for material reporting. 
+                  The most advanced STAAD.Pro parser for material reporting.
                   Upload your .STD file to generate weight breakdowns in seconds.
                 </motion.p>
               </div>
@@ -195,7 +193,7 @@ function App() {
               className="flex flex-col items-center justify-center min-h-[60vh]"
             >
               <div className="relative w-28 h-28">
-                <motion.div 
+                <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
                   className="absolute inset-0 border-b-2 border-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]"
@@ -224,16 +222,16 @@ function App() {
                     {data.filename}
                   </h2>
                 </div>
-                
+
                 <div className="flex flex-wrap items-center gap-3">
-                  <button 
+                  <button
                     onClick={resetApp}
                     className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-sm font-semibold"
                   >
                     <RefreshCw className="w-4 h-4" />
                     Reset
                   </button>
-                  <button 
+                  <button
                     onClick={downloadExcel}
                     disabled={downloading}
                     className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all text-sm font-bold shadow-2xl shadow-indigo-600/30 group"
@@ -257,16 +255,18 @@ function App() {
                   {[
                     { id: 'summary', icon: BarChart3, label: 'Summary' },
                     { id: 'detail', icon: TableIcon, label: 'Members' },
-                    { id: 'parts', icon: Layers, label: 'Parts' }
+                    { id: 'parts', icon: Layers, label: 'Parts' },
+                    ...((data.pipes && data.pipes.length > 0)
+                      ? [{ id: 'pipes', icon: Circle, label: `Pipes (${data.pipes.length})` }]
+                      : [])
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setView(tab.id)}
-                      className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                        view === tab.id 
-                          ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 scale-[1.02]' 
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
+                      className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${view === tab.id
+                        ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 scale-[1.02]'
+                        : 'text-slate-400 hover:text-slate-200'
+                        }`}
                     >
                       <tab.icon className="w-4 h-4" />
                       {tab.label}
@@ -276,22 +276,25 @@ function App() {
               </div>
 
               {/* Main Data Content */}
-              <motion.div 
+              <motion.div
                 layout
                 className="glass rounded-3xl overflow-hidden border border-white/5 shadow-3xl bg-slate-950/40"
               >
-                <ResultsTable 
-                  type={view} 
-                  summary={data.summary} 
-                  records={data.records} 
+                <ResultsTable
+                  type={view}
+                  summary={data.summary}
+                  records={data.records}
                   parts={data.part_breakup}
+                  pipes={data.pipes}
+                  pipeSummary={data.pipe_summary}
+                  pipeStats={data.pipe_stats}
                 />
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
-      
+
       {/* Footer Branding */}
       <footer className="max-w-7xl mx-auto px-6 py-12 text-center border-t border-white/5 opacity-50">
         <p className="text-xs font-medium tracking-[0.2em] uppercase text-slate-500">

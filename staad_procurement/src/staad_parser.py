@@ -8,7 +8,8 @@ import math
 from pathlib import Path
 
 
-STEEL_DENSITY = 7750  # kg/m3 (Adjusted to reach 60.5 ton target)
+STEEL_DENSITY = 7833.41  # kg/m3 (STAAD.Pro default is ~7833.41 kg/m3 or 490 lb/ft3)
+G = 9.80665              # m/s² — for kg → Newton conversion
 
 
 def parse_joints(lines):
@@ -158,7 +159,7 @@ def parse_member_properties(lines):
                 continue
 
             # Find first type keyword — handle "PRIS ROUND" as ROUND
-            TYPE_KW = ["TAPERED", "PRIS", "PRISMATIC", "TABLE", "ROUND", "YD", "ZD"]
+            TYPE_KW = ["TAPERED", "PRIS", "PRISMATIC", "TABLE", "ROUND", "PIPE", "YD", "ZD"]
             type_idx = None
             prop_type = "OTHER"
             for j, t in enumerate(tokens):
@@ -284,6 +285,26 @@ def extract_plate_info(prop):
             plates.append({'part': 'Plate', 'thickness_m': p[0],
                            'width_m': p[1] if len(p) > 1 else p[0], 'is_web': False})
 
+    elif prop['type'] == 'PIPE':
+        # "PIPE OD <outer_dia> ID <inner_dia>"  — STAAD direct pipe property
+        # Hollow circular section. Weight = π/4 × (OD² - ID²) × L × ρ
+        raw   = prop['raw']
+        od_m  = re.search(r'OD\s+([\d.eE+\-]+)', raw, re.IGNORECASE)
+        id_m  = re.search(r'\bID\s+([\d.eE+\-]+)', raw, re.IGNORECASE)
+        if od_m and id_m:
+            od  = float(od_m.group(1))      # outer diameter (m)
+            id_ = float(id_m.group(1))      # inner diameter (m)
+            thk = (od - id_) / 2.0          # wall thickness (m)
+            if thk < 0: thk = 0
+            cross_area = math.pi / 4 * (od**2 - id_**2)   # m²
+            plates.append({
+                'part': 'Pipe',
+                'thickness_m': thk,
+                'width_m': od,
+                'is_web': False,
+                'area_override': cross_area,
+            })
+
     elif prop['type'] == 'ROUND':
         # "PRIS ROUND STA <OD> END <OD> THI <wall_thk>" — hollow circular pipe
         # STAAD selfweight: W = π/4 × (OD² - ID²) × L × ρ
@@ -313,10 +334,17 @@ def extract_plate_info(prop):
 
 def build_procurement(props, members, joints):
     """
-    Build procurement records per member per plate part.
+    Build procurement records per member.
     Weight = cross_section_area × length × density  (matches STAAD selfweight)
+
+    Returns (plate_records, pipe_records):
+      - plate_records: rectangular plate parts (Web / Top Flange / Bot Flange / Plate)
+      - pipe_records:  hollow circular sections (PRIS ROUND), reported with
+                       outer_diameter / wall_thickness / length / weight only.
     """
-    records = []
+    plate_records = []
+    pipe_records  = []
+
     for prop in props:
         plates = extract_plate_info(prop)
         if not plates:
@@ -329,31 +357,43 @@ def build_procurement(props, members, joints):
                 thk_mm  = round(plate['thickness_m'] * 1000, 2)
                 width_m = plate['width_m']
 
-                # For pipe sections use hollow circle area; else rectangular area
                 if 'area_override' in plate:
+                    # Hollow pipe — store as a pipe record, not a plate
                     cross_area_m2 = plate['area_override']
-                    area_m2       = cross_area_m2 * length   # just for display: L × cross_area
+                    volume_m3     = cross_area_m2 * length
+                    weight_kg     = volume_m3 * STEEL_DENSITY
+                    od_mm         = round(width_m * 1000, 2)            # outer diameter (mm)
+                    surface_area  = math.pi * width_m * length            # π × OD × L (m²)
+
+                    pipe_records.append({
+                        'Member ID':           mid,
+                        'OD (mm)':             od_mm,
+                        'Wall Thickness (mm)': thk_mm,
+                        'Length (m)':          round(length, 3),
+                        'Surface Area (m²)':   round(surface_area, 4),
+                        'Weight (kg)':         round(weight_kg, 2),
+                    })
                 else:
                     cross_area_m2 = plate['thickness_m'] * width_m
-                    area_m2       = length * width_m          # surface area (L × width)
+                    area_m2       = length * width_m                      # surface area (L × width)
+                    volume_m3     = cross_area_m2 * length
+                    weight_kg     = volume_m3 * STEEL_DENSITY
 
-                volume_m3  = cross_area_m2 * length
-                weight_kg  = volume_m3 * STEEL_DENSITY
+                    plate_records.append({
+                        'Member ID':        mid,
+                        'Part':             plate['part'],
+                        'Thickness (mm)':   thk_mm,
+                        'Width (m)':        round(width_m, 4),
+                        'Length (m)':       round(length, 3),
+                        'Area (m²)':        round(area_m2, 4),
+                        'Weight (kg)':      round(weight_kg, 2),
+                    })
 
-                records.append({
-                    'Member ID':        mid,
-                    'Part':             plate['part'],
-                    'Thickness (mm)':   thk_mm,
-                    'Width (m)':        round(width_m, 4),
-                    'Length (m)':       round(length, 3),
-                    'Area (m²)':        round(area_m2, 4),
-                    'Weight (kg)':      round(weight_kg, 2),
-                })
-    return records
+    return plate_records, pipe_records
 
 
 def parse_std_file(filepath):
-    """Full parse pipeline. Returns (records, filename)"""
+    """Full parse pipeline. Returns (plate_records, pipe_records, filename)"""
     path = Path(filepath)
     with open(path, 'r', encoding='utf-8', errors='ignore') as f:
         lines = f.readlines()
@@ -361,5 +401,5 @@ def parse_std_file(filepath):
     joints  = parse_joints(lines)
     members = parse_member_incidences(lines)
     props   = parse_member_properties(lines)
-    records = build_procurement(props, members, joints)
-    return records, path.stem
+    plate_records, pipe_records = build_procurement(props, members, joints)
+    return plate_records, pipe_records, path.stem

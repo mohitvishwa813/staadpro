@@ -1,36 +1,36 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Scale, Layers, Maximize, Weight } from 'lucide-react';
+import { Scale, Layers, Zap, Weight } from 'lucide-react';
 
 const StatsGrid = ({ stats }) => {
   const items = [
-    { 
-      label: 'Total Members', 
-      value: stats.total_members, 
-      unit: 'IDs', 
-      icon: Layers, 
-      color: 'indigo' 
+    {
+      label: 'Total Members',
+      value: stats.total_members,
+      unit: 'IDs',
+      icon: Layers,
+      color: 'indigo'
     },
-    { 
-      label: 'Thicknesses', 
-      value: stats.thicknesses_mm.length, 
-      unit: 'Variants', 
-      icon: Scale, 
-      color: 'violet' 
+    {
+      label: 'Thicknesses',
+      value: stats.thicknesses_mm.length,
+      unit: 'Variants',
+      icon: Scale,
+      color: 'violet'
     },
-    { 
-      label: 'Surface Area', 
-      value: stats.total_area_m2, 
-      unit: 'm²', 
-      icon: Maximize, 
-      color: 'cyan' 
+    {
+      label: 'STAAD Pro Weight',
+      value: stats.total_weight_kn ?? +(stats.total_weight_kg * 0.00980665).toFixed(3),
+      unit: 'kN',
+      icon: Zap,
+      color: 'cyan'
     },
-    { 
-      label: 'Net Weight', 
-      value: stats.total_weight_ton, 
-      unit: 'Tons', 
-      icon: Weight, 
-      color: 'indigo' 
+    {
+      label: 'Net Weight',
+      value: stats.total_weight_ton,
+      unit: 'Tons',
+      icon: Weight,
+      color: 'indigo'
     },
   ];
 

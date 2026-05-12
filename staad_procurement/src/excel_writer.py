@@ -258,8 +258,74 @@ def write_partwise_sheet(ws, records):
     ws.freeze_panes = "A3"
 
 
+# ── Sheet 4: Pipes ─────────────────────────────────────────────────────────────
+def write_pipes_sheet(ws, pipe_records):
+    ws.title = "Pipes"
+    ws.sheet_view.showGridLines = False
+
+    ws.merge_cells("A1:F1")
+    ws["A1"] = "STAAD.Pro — Pipe / Hollow Round Sections"
+    ws["A1"].font      = Font(name='Arial', size=14, bold=True, color=CLR_HEADER_FG)
+    ws["A1"].fill      = _fill(CLR_TITLE_BG)
+    ws["A1"].alignment = _center()
+    ws.row_dimensions[1].height = 28
+
+    headers = ["Member ID", "OD (mm)", "Wall Thickness (mm)",
+               "Length (m)", "Surface Area (m²)", "Weight (kg)"]
+    ws.row_dimensions[2].height = 30
+    for ci, h in enumerate(headers, 1):
+        c = ws.cell(row=2, column=ci, value=h)
+        c.font      = _hdr_font(10)
+        c.fill      = _fill(CLR_SUBHDR_BG)
+        c.alignment = _center(wrap=True)
+        c.border    = BORDER_MED
+
+    total_wt  = 0.0
+    total_len = 0.0
+    for ri, rec in enumerate(pipe_records, 3):
+        alt = ri % 2 == 0
+        bg  = CLR_ALT_ROW if alt else "FFFFFF"
+        row = [
+            rec['Member ID'],
+            rec['OD (mm)'],
+            rec['Wall Thickness (mm)'],
+            rec['Length (m)'],
+            rec['Surface Area (m²)'],
+            rec['Weight (kg)'],
+        ]
+        total_wt  += rec['Weight (kg)']
+        total_len += rec['Length (m)']
+        for ci, v in enumerate(row, 1):
+            c = ws.cell(row=ri, column=ci, value=v)
+            c.font   = _cell_font()
+            c.fill   = _fill(bg)
+            c.border = BORDER_THIN
+            c.alignment = _center() if ci == 1 else _right()
+            if ci == 6:
+                c.number_format = '#,##0.00'
+            elif ci in (4, 5):
+                c.number_format = '0.000'
+
+    if pipe_records:
+        tr = 3 + len(pipe_records)
+        grand = ["GRAND TOTAL", "", "", round(total_len, 3), "", round(total_wt, 2)]
+        for ci, v in enumerate(grand, 1):
+            c = ws.cell(row=tr, column=ci, value=v)
+            c.font   = Font(name='Arial', size=11, bold=True)
+            c.fill   = _fill(CLR_TOTAL_BG)
+            c.border = BORDER_MED
+            c.alignment = _center() if ci == 1 else _right()
+            if ci == 6:
+                c.number_format = '#,##0.00'
+            elif ci == 4:
+                c.number_format = '0.000'
+
+    set_col_widths(ws, {'A': 12, 'B': 12, 'C': 20, 'D': 12, 'E': 18, 'F': 14})
+    ws.freeze_panes = "A3"
+
+
 # ── Master function ─────────────────────────────────────────────────────────────
-def generate_excel(records, filename, output_path):
+def generate_excel(records, filename, output_path, pipe_records=None):
     wb = Workbook()
     ws1 = wb.active
     write_detail_sheet(ws1, records, filename)
@@ -269,6 +335,10 @@ def generate_excel(records, filename, output_path):
 
     ws3 = wb.create_sheet()
     write_partwise_sheet(ws3, records)
+
+    if pipe_records:
+        ws4 = wb.create_sheet()
+        write_pipes_sheet(ws4, pipe_records)
 
     wb.save(output_path)
     return output_path

@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Circle } from 'lucide-react';
 
-const ResultsTable = ({ type, summary, records, parts }) => {
+const ResultsTable = ({ type, summary, records, parts, pipes, pipeSummary, pipeStats }) => {
   const [search, setSearch] = useState('');
+  const [pipeSearch, setPipeSearch] = useState('');
 
-  const filteredRecords = (records || []).filter(r => 
-    r.member_id.toString().includes(search) || 
+  const filteredRecords = (records || []).filter(r =>
+    r.member_id.toString().includes(search) ||
     r.part.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const filteredPipes = (pipes || []).filter(p =>
+    p.member_id.toString().includes(pipeSearch) ||
+    p.od_mm.toString().includes(pipeSearch) ||
+    p.wall_thickness_mm.toString().includes(pipeSearch)
   );
 
   const Th = ({ children, align = 'left' }) => (
@@ -46,6 +53,128 @@ const ResultsTable = ({ type, summary, records, parts }) => {
             ))}
           </tbody>
         </table>
+      </div>
+    );
+  }
+
+  if (type === 'pipes') {
+    return (
+      <div>
+        {/* Pipe summary header */}
+        {pipeStats && (
+          <div className="p-5 sm:p-6 border-b border-white/5 bg-slate-900/30">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">Pipe Members</p>
+                <p className="text-xl font-black text-white">{pipeStats.total_members}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">Total Length</p>
+                <p className="text-xl font-black text-white">
+                  {pipeStats.total_length_m.toLocaleString()}<span className="text-xs text-slate-500 ml-1">m</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">Pipe Weight</p>
+                <p className="text-xl font-black text-white">
+                  {pipeStats.total_weight_ton.toLocaleString()}<span className="text-xs text-slate-500 ml-1">t</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">STAAD Weight</p>
+                <p className="text-xl font-black text-indigo-400">
+                  {pipeStats.total_weight_kn.toLocaleString()}<span className="text-xs text-slate-500 ml-1">kN</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pipe group summary */}
+        {pipeSummary && pipeSummary.length > 0 && (
+          <div className="overflow-x-auto scrollbar-thin border-b border-white/5">
+            <table className="w-full text-left border-collapse min-w-[700px]">
+              <thead>
+                <tr className="bg-white/[0.01] border-b border-white/5">
+                  <Th>OD (mm)</Th>
+                  <Th>Wall Thk (mm)</Th>
+                  <Th>Pieces</Th>
+                  <Th>Members</Th>
+                  <Th>Length (m)</Th>
+                  <Th align="right">Weight (kg)</Th>
+                  <Th align="right">Weight (Ton)</Th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {pipeSummary.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-indigo-500/[0.03] transition-colors group">
+                    <td className="px-6 py-5">
+                      <span className="px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 font-black text-sm border border-cyan-500/10 group-hover:bg-cyan-600 group-hover:text-white transition-all">
+                        Ø {row.od_mm}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-slate-300 font-bold">{row.wall_thickness_mm} mm</td>
+                    <td className="px-6 py-5 text-slate-300 font-bold">{row.count}</td>
+                    <td className="px-6 py-5 text-slate-400 font-medium">{row.member_count}</td>
+                    <td className="px-6 py-5 text-slate-400 font-mono text-sm">{row.total_length_m.toFixed(3)}</td>
+                    <td className="px-6 py-5 text-right text-white font-black font-mono">{row.total_weight_kg.toLocaleString()}</td>
+                    <td className="px-6 py-5 text-right text-indigo-400 font-black font-mono">{row.total_weight_ton.toFixed(3)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pipe member detail */}
+        <div className="p-5 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/30">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search Member / OD / Wall Thk..."
+              className="w-full bg-slate-950/50 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
+              value={pipeSearch}
+              onChange={(e) => setPipeSearch(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-3 text-[10px] text-slate-500 font-black uppercase tracking-widest">
+            <Filter className="w-3 h-3" />
+            {filteredPipes.length} Pipes
+          </div>
+        </div>
+        <div className="overflow-x-auto max-h-[600px] scrollbar-thin">
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead className="sticky top-0 z-20 bg-slate-950 shadow-sm">
+              <tr className="border-b border-white/5">
+                <Th>Member ID</Th>
+                <Th>OD (mm)</Th>
+                <Th>Wall Thk (mm)</Th>
+                <Th>Length (m)</Th>
+                <Th>Surface Area (m²)</Th>
+                <Th align="right">Weight (kg)</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {filteredPipes.map((row, idx) => (
+                <tr key={idx} className="hover:bg-indigo-500/[0.03] transition-colors group">
+                  <td className="px-6 py-5 font-black text-indigo-400 text-sm tracking-tight group-hover:text-white transition-colors">
+                    #{row.member_id}
+                  </td>
+                  <td className="px-6 py-5">
+                    <span className="text-[10px] px-2.5 py-1 rounded-md font-black uppercase tracking-widest bg-cyan-500/10 text-cyan-400 border border-cyan-500/10">
+                      Ø {row.od_mm}
+                    </span>
+                  </td>
+                  <td className="px-6 py-5 text-slate-300 font-bold">{row.wall_thickness_mm} mm</td>
+                  <td className="px-6 py-5 text-slate-400 font-mono text-sm">{row.length_m.toFixed(3)}</td>
+                  <td className="px-6 py-5 text-slate-400 font-mono text-sm">{row.surface_area_m2.toFixed(4)}</td>
+                  <td className="px-6 py-5 text-right text-white font-black font-mono tracking-tighter">{row.weight_kg.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }
