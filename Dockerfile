@@ -21,5 +21,6 @@ WORKDIR /app/staad_procurement
 ENV PORT=8000
 EXPOSE 8000
 
-# Use sh -c so $PORT is expanded at container start time, not build time
-CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT}"]
+# Use sh -c so $PORT is expanded at container start time, not build time.
+# Echo the chosen port so it's visible in Railway's deploy logs.
+CMD ["sh", "-c", "echo \"Starting uvicorn on 0.0.0.0:${PORT}\" && exec uvicorn api.main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'"]
