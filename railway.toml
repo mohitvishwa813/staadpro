@@ -2,8 +2,10 @@
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
+# Intentionally no startCommand here — the Dockerfile CMD handles startup
+# from the correct WORKDIR (/app/staad_procurement). Setting startCommand
+# here would override CMD and run from /, breaking the import path.
 [deploy]
-startCommand = "uvicorn api.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips=*"
 healthcheckPath = "/health"
 healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"
