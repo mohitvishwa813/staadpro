@@ -15,7 +15,9 @@ import FileUpload from './components/FileUpload';
 import StatsGrid from './components/StatsGrid';
 import ResultsTable from './components/ResultsTable';
 
-const API_BASE = 'https://staadpro-wvbd.onrender.com';
+// const API_BASE = 'https://staadpro-wvbd.onrender.com';
+const API_BASE = 'https://staadpro-production.up.railway.app';
+
 // const API_BASE = 'http://localhost:8000';
 
 
