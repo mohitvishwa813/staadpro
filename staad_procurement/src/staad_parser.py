@@ -12,6 +12,41 @@ STEEL_DENSITY = 7833.41  # kg/m3 (STAAD.Pro default is ~7833.41 kg/m3 or 490 lb/
 G = 9.80665              # m/s² — for kg → Newton conversion
 
 
+# ── IS 1239 Part 1 — Indian pipe (steel tube) sections ─────────────────────────
+# STAAD section names: "PIP<od_tenths_mm><class>", e.g. "PIP889M" = OD 88.9 mm Medium.
+# Wall thickness (mm) keyed by (OD_mm, class). Class: L=Light, M=Medium, H=Heavy.
+INDIAN_PIPE_WALL_MM = {
+    (21.3,  'L'): 2.0,  (21.3,  'M'): 2.6,  (21.3,  'H'): 3.2,
+    (26.9,  'L'): 2.3,  (26.9,  'M'): 2.6,  (26.9,  'H'): 3.2,
+    (33.7,  'L'): 2.6,  (33.7,  'M'): 3.2,  (33.7,  'H'): 4.0,
+    (42.4,  'L'): 2.6,  (42.4,  'M'): 3.2,  (42.4,  'H'): 4.0,
+    (48.3,  'L'): 2.9,  (48.3,  'M'): 3.2,  (48.3,  'H'): 4.0,
+    (60.3,  'L'): 2.9,  (60.3,  'M'): 3.6,  (60.3,  'H'): 4.5,
+    (76.1,  'L'): 3.2,  (76.1,  'M'): 3.6,  (76.1,  'H'): 4.5,
+    (88.9,  'L'): 3.2,  (88.9,  'M'): 4.0,  (88.9,  'H'): 4.8,
+    (114.3, 'L'): 3.6,  (114.3,'M'): 4.5,  (114.3,'H'): 5.4,
+    (139.7, 'M'): 4.85, (139.7,'H'): 5.4,
+    (165.1, 'M'): 4.85, (165.1,'H'): 5.4,
+}
+
+
+def _resolve_indian_pipe(section_name):
+    """
+    Resolve a STAAD section name like 'PIP889M' to (OD_m, wall_thk_m).
+    Returns None if the name doesn't match the Indian pipe convention.
+    """
+    m = re.match(r'^PIP(\d+)([LMH])$', section_name.strip(), re.IGNORECASE)
+    if not m:
+        return None
+    od_tenths = int(m.group(1))
+    cls       = m.group(2).upper()
+    od_mm     = od_tenths / 10.0
+    thk_mm    = INDIAN_PIPE_WALL_MM.get((od_mm, cls))
+    if thk_mm is None:
+        return None
+    return od_mm / 1000.0, thk_mm / 1000.0
+
+
 def parse_joints(lines):
     """Extract joint coordinates {joint_id: (x, y, z)}"""
     joints = {}
@@ -284,6 +319,26 @@ def extract_plate_info(prop):
         elif len(p) >= 1:
             plates.append({'part': 'Plate', 'thickness_m': p[0],
                            'width_m': p[1] if len(p) > 1 else p[0], 'is_web': False})
+
+    elif prop['type'] == 'TABLE':
+        # "TABLE ST <SECTION_NAME>"  — steel-table lookup.
+        # Currently we only resolve Indian pipe sections (PIP<od_tenths><class>).
+        # Other section names (angles, channels, Z-sections, etc.) fall through.
+        raw = prop['raw']
+        m = re.search(r'TABLE\s+ST\s+(\S+)', raw, re.IGNORECASE)
+        if m:
+            resolved = _resolve_indian_pipe(m.group(1))
+            if resolved:
+                od, thk = resolved
+                id_ = od - 2 * thk
+                cross_area = math.pi / 4 * (od**2 - id_**2)
+                plates.append({
+                    'part': 'Pipe',
+                    'thickness_m': thk,
+                    'width_m': od,
+                    'is_web': False,
+                    'area_override': cross_area,
+                })
 
     elif prop['type'] == 'PIPE':
         # "PIPE OD <outer_dia> ID <inner_dia>"  — STAAD direct pipe property

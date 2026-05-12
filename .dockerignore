@@ -1,0 +1,27 @@
+# Frontend (not deployed with the API)
+frontend/
+
+# Python build artefacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.egg-info/
+.venv/
+venv/
+env/
+
+# Local input/output samples
+staad_procurement/input/
+staad_procurement/output/
+
+# Git / IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# OS / misc
+.DS_Store
+Thumbs.db
+*.log
+resp.json
